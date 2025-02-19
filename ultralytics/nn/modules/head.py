@@ -30,6 +30,7 @@ class Detect(nn.Module):
     anchors = torch.empty(0)  # init
     strides = torch.empty(0)  # init
     legacy = False  # backward compatibility for v3/v5/v8/v9 models
+    no_post = False
 
     def __init__(self, nc=80, ch=()):
         """Initializes the YOLO detection layer with specified number of classes and channels."""
@@ -65,13 +66,18 @@ class Detect(nn.Module):
         """Concatenates and returns predicted bounding boxes and class probabilities."""
         if self.end2end:
             return self.forward_end2end(x)
-
+        if self.export and self.no_post:
+            no_post_x = []  # Initialize once outside the loop
         for i in range(self.nl):
             x[i] = torch.cat((self.cv2[i](x[i]), self.cv3[i](x[i])), 1)
+            if self.export and self.no_post:
+                no_post_x.append(x[i])
+        if self.export and self.no_post:
+            return no_post_x
         if self.training:  # Training path
             return x
         y = self._inference(x)
-        return y if self.export else (y, x)
+        return y if self.export else (y, x)    
 
     def forward_end2end(self, x):
         """

@@ -272,6 +272,10 @@ class Exporter:
             assert self.device.type == "cpu", "optimize=True not compatible with cuda devices, i.e. use device='cpu'"
         if self.args.int8 and tflite:
             assert not getattr(model, "end2end", False), "TFLite INT8 export not supported for end2end models."
+        if self.args.no_post:
+            assert format not in (
+                "-", "torchscript", "saved_model", "pb", "ncnn"
+            ), "no_post=True is not compatible with formats: -, torchscript, saved_model, pb and nccn"
         if edgetpu:
             if not LINUX:
                 raise SystemError("Edge TPU export only supported on Linux. See https://coral.ai/docs/edgetpu/compiler")
@@ -320,6 +324,7 @@ class Exporter:
                 m.export = True
                 m.format = self.args.format
                 m.max_det = self.args.max_det
+                m.no_post = self.args.no_post
             elif isinstance(m, C2f) and not is_tf_format:
                 # EdgeTPU does not support FlexSplitV while split provides cleaner ONNX graph
                 m.forward = m.forward_split
@@ -1306,11 +1311,26 @@ class Exporter:
             output2.name = "output"
             output2.description = "Mask protos"
             output2.associatedFiles = [label_file]
+        if self.model.task == "detect" and self.args.no_post:
+            output2 = schema.TensorMetadataT()
+            output2.name = "output"
+            output2.description = "Coordinates of detected objects, class labels, and confidence score"
+            output2.associatedFiles = [label_file]
+                        
+            output3 = schema.TensorMetadataT()
+            output3.name = "output"
+            output3.description = "Coordinates of detected objects, class labels, and confidence score"
+            output3.associatedFiles = [label_file]
 
         # Create subgraph info
         subgraph = schema.SubGraphMetadataT()
         subgraph.inputTensorMetadata = [input_meta]
-        subgraph.outputTensorMetadata = [output1, output2] if self.model.task == "segment" else [output1]
+        if self.model.task == "segment":
+          subgraph.outputTensorMetadata = [output1, output2]  
+        elif self.model.task == "detect" and self.args.no_post: 
+          subgraph.outputTensorMetadata = [output1, output2, output3]
+        else:
+          subgraph.outputTensorMetadata = [output1]
         model_meta.subgraphMetadata = [subgraph]
 
         b = flatbuffers.Builder(0)
