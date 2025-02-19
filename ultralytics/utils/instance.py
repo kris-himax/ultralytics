@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 from collections import abc
 from itertools import repeat
@@ -28,7 +28,7 @@ to_4tuple = _ntuple(4)
 # `ltwh` means left top and width, height(COCO format)
 _formats = ["xyxy", "xywh", "ltwh"]
 
-__all__ = ("Bboxes",)  # tuple or list
+__all__ = ("Bboxes", "Instances")  # tuple or list
 
 
 class Bboxes:
@@ -407,7 +407,7 @@ class Instances:
 
         cat_boxes = np.concatenate([ins.bboxes for ins in instances_list], axis=axis)
         seg_len = [b.segments.shape[1] for b in instances_list]
-        if len(set(seg_len)) > 1:  # resample segments if there's different length
+        if len(frozenset(seg_len)) > 1:  # resample segments if there's different length
             max_len = max(seg_len)
             cat_segments = np.concatenate(
                 [
